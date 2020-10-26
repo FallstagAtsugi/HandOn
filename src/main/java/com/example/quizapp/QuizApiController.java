@@ -25,22 +25,27 @@ public class QuizApiController {
 
     /*　ランダムでクイズを一軒だけ取得する　*/
     @GetMapping("quiz")
-    public String quiz(Model model) {
-        int index = new Random().nextInt(quizzes.size());//引数が3の時 0~2
-
-        model.addAttribute("quiz", quizzes.get(index));
+    public String quiz(Model model, RedirectAttributes attributes) {
+        try {
+            int index = new Random().nextInt(quizzes.size());//引数が3の時 0~2
+            model.addAttribute("quiz", quizzes.get(index));
+        } catch (IllegalArgumentException e) {
+            e.printStackTrace();
+            attributes.addFlashAttribute("errorMessage", "問題は1つ以上登録してください");
+            return "redirect:/page/show";
+        }
         return "quiz";
     }
 
     @GetMapping("show")
     public String show(Model model) {
-        model.addAttribute("quizzes",quizzes);
+        model.addAttribute("quizzes", quizzes);
         return "list";
     }
 
     @PostMapping("create")
     public String create(@RequestParam String question,
-                       @RequestParam boolean answer) {
+                         @RequestParam boolean answer) {
         quiz = new Quiz(question, answer); //これあんまりフィールドに設定した意味がない…。結局newしてるから
 
         quizzes.add(quiz);
@@ -55,7 +60,7 @@ public class QuizApiController {
 
         for (Quiz check : quizzes) {
             if (check.getQuestion().equals(question)) {
-                model.addAttribute("quiz",check);
+                model.addAttribute("quiz", check);
                 if (answer == check.isAnswer()) {
                     model.addAttribute("result", "正解！");
                 } else {
@@ -69,11 +74,16 @@ public class QuizApiController {
     @PostMapping("save")
     public String save(RedirectAttributes attributes) {
         try {
-            quizFileDao.write(quizzes);
-            attributes.addFlashAttribute("successMessage","ファイルに保存しました");
+            if (quizzes.size() == 0) {
+                attributes.addFlashAttribute("errorMessage", "問題がないので保存できません");
+                return "redirect:/page/show";
+            } else {
+                quizFileDao.write(quizzes);
+                attributes.addFlashAttribute("successMessage", "ファイルに保存しました");
+            }
         } catch (IOException e) {
             e.printStackTrace();
-            attributes.addFlashAttribute("errorMessage","ファイルに失敗しました");
+            attributes.addFlashAttribute("errorMessage", "ファイルに失敗しました");
         }
         return "redirect:/page/show";
     }
@@ -82,10 +92,10 @@ public class QuizApiController {
     public String load(RedirectAttributes attributes) {
         try {
             quizzes = quizFileDao.read();//読み込んだ結果をフィールドに代入してあげる
-            attributes.addFlashAttribute("successMessage","ファイルを読み込みました");
+            attributes.addFlashAttribute("successMessage", "ファイルを読み込みました");
         } catch (IOException e) { //read()メソッドで投げられた例外をこちらの処理でキャッチしている
             e.printStackTrace();
-            attributes.addFlashAttribute("errorMessage","ファイルの読み込みに失敗しました");
+            attributes.addFlashAttribute("errorMessage", "ファイルの読み込みに失敗しました");
         }
         return "redirect:/page/show";
     }
